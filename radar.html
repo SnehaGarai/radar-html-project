@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Police Radar — Doppler Effect</title>
+
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        background: #f8fafc;
+        color: #0f172a;
+    }
+
+    .container {
+        max-width: 900px;
+        margin: 30px auto;
+        padding: 24px;
+    }
+
+    h1 {
+        text-align: center;
+        margin-bottom: 8px;
+        font-size: 28px;
+    }
+
+    .subtitle {
+        text-align: center;
+        color: #64748b;
+        margin-bottom: 24px;
+    }
+
+    .simulation {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 20px;
+    }
+
+    canvas {
+        width: 100%;
+        height: 300px;
+        display: block;
+        background: #f8fafc;
+        border-radius: 12px;
+    }
+
+    .controls {
+        margin-top: 22px;
+        display: grid;
+        grid-template-columns: 1fr 180px;
+        gap: 25px;
+        align-items: center;
+    }
+
+    label {
+        font-weight: bold;
+        display: block;
+        margin-bottom: 8px;
+    }
+
+    input[type="range"] {
+        width: 100%;
+        accent-color: #2563eb;
+    }
+
+    .speed-display {
+        font-size: 32px;
+        font-weight: bold;
+        margin-top: 8px;
+    }
+
+    .unit {
+        color: #64748b;
+        font-size: 14px;
+    }
+
+    .radar-frequency {
+        text-align: center;
+        border-left: 1px solid #e2e8f0;
+        padding-left: 20px;
+    }
+
+    .radar-frequency .value {
+        font-size: 22px;
+        font-weight: bold;
+        margin-top: 6px;
+    }
+
+    .results {
+        margin-top: 22px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+    }
+
+    .card {
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 15px;
+        background: #fff;
+    }
+
+    .card-title {
+        font-size: 13px;
+        color: #64748b;
+        margin-bottom: 7px;
+    }
+
+    .card-value {
+        font-size: 21px;
+        font-weight: bold;
+    }
+
+    .formula {
+        margin-top: 20px;
+        padding: 15px;
+        background: #f1f5f9;
+        border-radius: 10px;
+        text-align: center;
+        font-family: "Courier New", monospace;
+        font-size: 17px;
+    }
+
+    .explanation {
+        margin-top: 15px;
+        color: #475569;
+        font-size: 14px;
+        line-height: 1.5;
+        text-align: center;
+    }
+
+    @media (max-width: 650px) {
+        .controls {
+            grid-template-columns: 1fr;
+        }
+
+        .radar-frequency {
+            border-left: none;
+            border-top: 1px solid #e2e8f0;
+            padding: 15px 0 0;
+        }
+
+        .results {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>Police Radar: Measuring Vehicle Speed</h1>
+
+    <div class="subtitle">
+        An interactive demonstration of the Doppler effect
+    </div>
+
+    <div class="simulation">
+
+        <canvas id="radarCanvas"></canvas>
+
+        <div class="controls">
+
+            <div>
+                <label for="speed">
+                    Vehicle speed
+                </label>
+
+                <input
+                    id="speed"
+                    type="range"
+                    min="0"
+                    max="140"
+                    value="80"
+                    step="1"
+                >
+
+                <div class="speed-display">
+                    <span id="speedValue">80</span>
+                    <span class="unit">km/h</span>
+                </div>
+            </div>
+
+            <div class="radar-frequency">
+                <div class="unit">
+                    Radar frequency
+                </div>
+
+                <div class="value">
+                    10.0 GHz
+                </div>
+            </div>
+
+        </div>
+
+
+        <div class="results">
+
+            <div class="card">
+                <div class="card-title">
+                    Emitted frequency
+                </div>
+
+                <div class="card-value">
+                    10.000 GHz
+                </div>
+            </div>
+
+
+            <div class="card">
+                <div class="card-title">
+                    Doppler shift
+                </div>
+
+                <div class="card-value" id="shiftValue">
+                    +1.48 kHz
+                </div>
+            </div>
+
+
+            <div class="card">
+                <div class="card-title">
+                    Calculated velocity
+                </div>
+
+                <div class="card-value" id="velocityValue">
+                    80 km/h
+                </div>
+            </div>
+
+        </div>
+
+
+        <div class="formula">
+            v = c Δf / (2f₀)
+        </div>
+
+        <div class="explanation">
+            The radar sends microwaves toward the vehicle. The moving vehicle
+            reflects the waves back with a shifted frequency. The radar uses
+            this frequency shift to calculate the vehicle's velocity.
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+const canvas = document.getElementById("radarCanvas");
+const ctx = canvas.getContext("2d");
+
+const speedSlider = document.getElementById("speed");
+const speedValue = document.getElementById("speedValue");
+const shiftValue = document.getElementById("shiftValue");
+const velocityValue = document.getElementById("velocityValue");
+
+
+// Physical constants
+
+const c = 299792458;       // speed of light (m/s)
+const f0 = 10e9;           // radar frequency = 10 GHz
+
+
+// Resize canvas
+
+function resizeCanvas() {
+
+    const rect = canvas.getBoundingClientRect();
+
+    const dpr = window.devicePixelRatio || 1;
+
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    draw();
+
+}
+
+window.addEventListener("resize", resizeCanvas);
+
+
+// Calculate Doppler shift
+
+function calculateDoppler(speedKmh) {
+
+    const velocity = speedKmh / 3.6;
+
+    /*
+        Two-way radar Doppler equation:
+
+        Δf = 2 f₀ v / c
+    */
+
+    const deltaF = (2 * f0 * velocity) / c;
+
+    return deltaF;
+
+}
+
+
+// Format frequency
+
+function formatFrequency(hz) {
+
+    if (hz >= 1e6) {
+
+        return (hz / 1e6).toFixed(3) + " MHz";
+
+    }
+
+    if (hz >= 1e3) {
+
+        return (hz / 1e3).toFixed(2) + " kHz";
+
+    }
+
+    return hz.toFixed(1) + " Hz";
+
+}
+
+
+// Draw radar scene
+
+function draw() {
+
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+
+    ctx.clearRect(0, 0, width, height);
+
+
+    // Ground
+
+    ctx.strokeStyle = "#cbd5e1";
+    ctx.lineWidth = 3;
+
+    ctx.beginPath();
+    ctx.moveTo(30, height - 45);
+    ctx.lineTo(width - 30, height - 45);
+    ctx.stroke();
+
+
+    // Radar gun
+
+    const radarX = 65;
+    const radarY = height - 125;
+
+    ctx.fillStyle = "#334155";
+
+    // Body
+
+    ctx.beginPath();
+
+    ctx.roundRect(
+        radarX,
+        radarY,
+        105,
+        48,
+        9
+    );
+
+    ctx.fill();
+
+
+    // Handle
+
+    ctx.beginPath();
+
+    ctx.moveTo(radarX + 65, radarY + 48);
+    ctx.lineTo(radarX + 90, radarY + 90);
+    ctx.lineTo(radarX + 65, radarY + 90);
+    ctx.lineTo(radarX + 52, radarY + 48);
+
+    ctx.fill();
+
+
+    // Radar display
+
+    ctx.fillStyle = "#e2e8f0";
+
+    ctx.fillRect(
+        radarX + 15,
+        radarY + 12,
+        40,
+        22
+    );
+
+    ctx.fillStyle = "#0f172a";
+
+    ctx.font = "9px Arial";
+
+    ctx.textAlign = "center";
+
+    ctx.fillText(
+        "RADAR",
+        radarX + 35,
+        radarY + 27
+    );
+
+
+    // Radar label
+
+    ctx.font = "bold 13px Arial";
+
+    ctx.fillStyle = "#0f172a";
+
+    ctx.fillText(
+        "Radar gun",
+        radarX + 52,
+        radarY - 15
+    );
+
+
+    // Vehicle position
+
+    const speed = Number(speedSlider.value);
+
+    const vehicleX =
+        width - 210 + (speed / 140) * 40;
+
+    const vehicleY = height - 105;
+
+
+    // Doppler wave beams
+
+    ctx.strokeStyle = "#2563eb";
+
+    ctx.lineWidth = 3;
+
+    ctx.setLineDash([10, 8]);
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        radarX + 105,
+        radarY + 25
+    );
+
+    ctx.lineTo(
+        vehicleX,
+        vehicleY + 25
+    );
+
+    ctx.stroke();
+
+    ctx.setLineDash([]);
+
+
+    // Wavefronts
+
+    for (let i = 0; i < 5; i++) {
+
+        const radius = 15 + i * 18;
+
+        ctx.beginPath();
+
+        ctx.ellipse(
+            vehicleX,
+            vehicleY + 25,
+            radius,
+            radius * 0.45,
+            0,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.strokeStyle =
+            "rgba(37,99,235," +
+            (0.65 - i * 0.1) +
+            ")";
+
+        ctx.lineWidth = 2;
+
+        ctx.stroke();
+
+    }
+
+
+    // Vehicle
+
+    const carWidth = 110;
+    const carHeight = 45;
+
+
+    // Car body
+
+    ctx.fillStyle = "#475569";
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        vehicleX,
+        vehicleY + 40
+    );
+
+    ctx.lineTo(
+        vehicleX + 12,
+        vehicleY + 15
+    );
+
+    ctx.quadraticCurveTo(
+        vehicleX + 18,
+        vehicleY + 5,
+        vehicleX + 32,
+        vehicleY + 5
+    );
+
+    ctx.lineTo(
+        vehicleX + 80,
+        vehicleY + 5
+    );
+
+    ctx.quadraticCurveTo(
+        vehicleX + 94,
+        vehicleY + 7,
+        vehicleX + 100,
+        vehicleY + 18
+    );
+
+    ctx.lineTo(
+        vehicleX + carWidth,
+        vehicleY + 40
+    );
+
+    ctx.closePath();
+
+    ctx.fill();
+
+
+    // Windows
+
+    ctx.fillStyle = "#dbeafe";
+
+    ctx.fillRect(
+        vehicleX + 34,
+        vehicleY + 10,
+        18,
+        15
+    );
+
+    ctx.fillRect(
+        vehicleX + 55,
+        vehicleY + 10,
+        22,
+        15
+    );
+
+
+    // Wheels
+
+    function wheel(x) {
+
+        ctx.beginPath();
+
+        ctx.arc(
+            x,
+            vehicleY + 43,
+            10,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fillStyle = "#0f172a";
+
+        ctx.fill();
+
+    }
+
+    wheel(vehicleX + 25);
+    wheel(vehicleX + 82);
+
+
+    // Velocity arrow
+
+    ctx.strokeStyle = "#0f766e";
+
+    ctx.lineWidth = 3;
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        vehicleX + 20,
+        vehicleY - 25
+    );
+
+    ctx.lineTo(
+        vehicleX + 95,
+        vehicleY - 25
+    );
+
+    ctx.stroke();
+
+
+    // Arrow head
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        vehicleX + 95,
+        vehicleY - 25
+    );
+
+    ctx.lineTo(
+        vehicleX + 85,
+        vehicleY - 31
+    );
+
+    ctx.lineTo(
+        vehicleX + 85,
+        vehicleY - 19
+    );
+
+    ctx.closePath();
+
+    ctx.fillStyle = "#0f766e";
+
+    ctx.fill();
+
+
+    // Velocity label
+
+    ctx.font = "12px Arial";
+
+    ctx.fillStyle = "#0f766e";
+
+    ctx.textAlign = "center";
+
+    ctx.fillText(
+        "vehicle velocity",
+        vehicleX + 57,
+        vehicleY - 35
+    );
+
+
+    // Microwave label
+
+    ctx.fillStyle = "#2563eb";
+
+    ctx.font = "12px Arial";
+
+    ctx.fillText(
+        "microwaves",
+        (radarX + vehicleX + 105) / 2,
+        radarY - 5
+    );
+
+}
+
+
+// Update values
+
+function update() {
+
+    const speed = Number(speedSlider.value);
+
+    const deltaF = calculateDoppler(speed);
+
+
+    speedValue.textContent = speed;
+
+    shiftValue.textContent =
+        "+" + formatFrequency(deltaF);
+
+    velocityValue.textContent =
+        speed + " km/h";
+
+
+    draw();
+
+}
+
+
+// Slider interaction
+
+speedSlider.addEventListener(
+    "input",
+    update
+);
+
+
+// Initial rendering
+
+resizeCanvas();
+
+update();
+
+</script>
+
+</body>
+</html>
